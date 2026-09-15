@@ -18,6 +18,24 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
+app.get('/produits', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM produits');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).send(`Erreur : ${err.message}`);
+  }
+});
+
+app.get('/categories', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM categories');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).send(`Erreur : ${err.message}`);
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Serveur démarré sur http://localhost:${PORT}`);
 });
