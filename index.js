@@ -92,6 +92,41 @@ app.get('/commandes/:id', async (req, res) => {
     res.status(500).send(`Erreur : ${err.message}`);
   }
 });
+app.get('/commandes', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT c.id, c.table_id, c.date_commande, c.statut, t.numero AS table_numero
+       FROM commandes c
+       JOIN tables_restaurant t ON c.table_id = t.id
+       ORDER BY c.date_commande DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).send(`Erreur : ${err.message}`);
+  }
+});
+app.put('/commandes/:id', async (req, res) => {
+  const { id } = req.params;
+  const { statut } = req.body;
+
+  const statutsValides = ['en attente', 'en préparation', 'servie', 'payée'];
+  if (!statutsValides.includes(statut)) {
+    return res.status(400).send(`Statut invalide. Valeurs possibles : ${statutsValides.join(', ')}`);
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE commandes SET statut = $1 WHERE id = $2 RETURNING *',
+      [statut, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).send('Commande introuvable');
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).send(`Erreur : ${err.message}`);
+  }
+});
 app.listen(PORT, () => {
   console.log(`Serveur démarré sur http://localhost:${PORT}`);
 });
