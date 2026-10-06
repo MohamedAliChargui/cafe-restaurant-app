@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Café Restaurant - Gestion</title>
+<style>
+  :root {
+    --bg: #faf7f2;
+    --card: #ffffff;
+    --accent: #8b5e3c;
+    --accent-dark: #6b4529;
+    --text: #2e2420;
+    --muted: #8a7c73;
+    --border: #e8ddd3;
+    --success: #4a7c59;
+    --warning: #c08a2e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .card h2 {
+    margin-top: 0;
+    font-size: 1.1rem;
+    color: var(--accent-dark);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+  .produit-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .produit-item:last-child { border-bottom: none; }
+  .produit-info { flex: 1; }
+  .produit-nom { font-weight: 600; }
+  .produit-desc { font-size: 0.8rem; color: var(--muted); }
+  .produit-prix { font-weight: 600; color: var(--accent); margin: 0 12px; white-space: nowrap; }
+  select, input, button {
+    font-family: inherit;
+    font-size: 0.9rem;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button:hover { background: var(--accent-dark); }
+  button.secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  button.secondary:hover { background: var(--accent); color: white; }
+  .ajout-produit {
+    display: flex;
+    gap: 6px;
+    margin-left: 10px;
+  }
+  .ajout-produit input { width: 50px; }
+  .commande-active {
+    background: #f3ece3;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .commande-active strong { color: var(--accent-dark); }
+  .ligne-panier {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    padding: 4px 0;
+  }
+  .total {
+    font-weight: 700;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+    padding-top: 8px;
+    text-align: right;
+  }
+  .liste-commandes { display: flex; flex-direction: column; gap: 10px; }
+  .commande-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 0.9rem;
+  }
+  .commande-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .statut-badge {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .statut-en_attente { background: #fde8d0; color: var(--warning); }
+  .statut-en_préparation { background: #ffe0b2; color: #a05c00; }
+  .statut-servie { background: #d7e9df; color: var(--success); }
+  .statut-payée { background: #dde3f0; color: #3a4f8a; }
+  .commande-detail-list { font-size: 0.82rem; color: var(--muted); margin: 6px 0; }
+  .statut-select { margin-top: 6px; }
+  .empty { color: var(--muted); font-size: 0.85rem; font-style: italic; }
+  .msg {
+    font-size: 0.85rem;
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+  }
+  .msg.ok { background: #d7e9df; color: var(--success); }
+  .msg.err { background: #f5d9d4; color: #a33b2a; }
+  select.table-select { margin-right: 8px; }
+</style>
+</head>
+<body>
+
+<h1>☕ Café Restaurant</h1>
+<p class="subtitle">Interface de prise de commande — connectée à l'API locale</p>
+
+<div class="layout">
+
+  <!-- Colonne gauche : menu + commande en cours -->
+  <div>
+    <div class="card">
+      <h2>Nouvelle commande</h2>
+      <div id="tableSelectZone">
+        <label for="tableSelect">Table :</label>
+        <select id="tableSelect" class="table-select"></select>
+        <button id="btnNouvelleCommande">Démarrer une commande</button>
+      </div>
+      <div id="commandeActiveZone"></div>
+    </div>
+
+    <div class="card" style="margin-top: 24px;">
+      <h2>Menu</h2>
+      <div id="produitsListe"><p class="empty">Chargement du menu…</p></div>
+    </div>
+  </div>
+
+  <!-- Colonne droite : commandes existantes -->
+  <div class="card">
+    <h2>Commandes <button class="secondary" id="btnRefresh" style="float:right; padding:4px 10px; font-size:0.8rem;">↻ Actualiser</button></h2>
+    <div id="commandesListe"><p class="empty">Chargement…</p></div>
+  </div>
+
+</div>
+
+<script>
+const API = window.location.origin; // suppose que le frontend est servi par le même serveur Express
+
+let produits = [];
+let categories = [];
+let tables = [];
+let commandeActive = null; // { id, table_id, panier: [{produit_id, nom, prix, quantite}] }
+
+async function api(path, options = {}) {
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Erreur ${res.status}`);
+  }
+  const contentType = res.headers.get('content-type') || '';
+  return contentType.includes('application/json') ? res.json() : res.text();
+}
+
+function showMsg(zoneId, text, ok = true) {
+  const zone = document.getElementById(zoneId);
+  const div = document.createElement('div');
+  div.className = 'msg ' + (ok ? 'ok' : 'err');
+  div.textContent = text;
+  zone.prepend(div);
+  setTimeout(() => div.remove(), 3500);
+}
+
+async function chargerDonnees() {
+  try {
+    [produits, categories] = await Promise.all([
+      api('/produits'),
+      api('/categories')
+    ]);
+    afficherProduits();
+  } catch (e) {
+    document.getElementById('produitsListe').innerHTML =
+      `<p class="empty">Impossible de charger le menu (${e.message}). Vérifie que le serveur tourne sur ${API}.</p>`;
+  }
+
+  try {
+    tables = [{ id: 1, numero: 1 }, { id: 2, numero: 2 }, { id: 3, numero: 3 }, { id: 4, numero: 4 }];
+    // Pas de route GET /tables_restaurant pour l'instant : liste fixe de secours.
+    const sel = document.getElementById('tableSelect');
+    sel.innerHTML = tables.map(t => `<option value="${t.id}">Table ${t.numero}</option>`).join('');
+  } catch (e) { /* silencieux */ }
+
+  await chargerCommandes();
+}
+
+function afficherProduits() {
+  const zone = document.getElementById('produitsListe');
+  if (!produits.length) {
+    zone.innerHTML = '<p class="empty">Aucun produit disponible.</p>';
+    return;
+  }
+  zone.innerHTML = produits.map(p => `
+    <div class="produit-item">
+      <div class="produit-info">
+        <div class="produit-nom">${p.nom}</div>
+        <div class="produit-desc">${p.description || ''}</div>
+      </div>
+      <div class="produit-prix">${Number(p.prix).toFixed(2)} DT</div>
+      <div class="ajout-produit">
+        <input type="number" min="1" value="1" id="qte-${p.id}">
+        <button class="secondary" onclick="ajouterAuPanier(${p.id})" ${commandeActive ? '' : 'disabled'}>+</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('btnNouvelleCommande').addEventListener('click', async () => {
+  const tableId = document.getElementById('tableSelect').value;
+  try {
+    const commande = await api('/commandes', {
+      method: 'POST',
+      body: JSON.stringify({ table_id: Number(tableId) })
+    });
+    commandeActive = { ...commande, panier: [] };
+    afficherCommandeActive();
+    afficherProduits();
+    showMsg('commandeActiveZone', `Commande #${commande.id} créée.`);
+    chargerCommandes();
+  } catch (e) {
+    showMsg('commandeActiveZone', e.message, false);
+  }
+});
+
+async function ajouterAuPanier(produitId) {
+  if (!commandeActive) return;
+  const qte = Number(document.getElementById(`qte-${produitId}`).value) || 1;
+  try {
+    const detail = await api('/commande_details', {
+      method: 'POST',
+      body: JSON.stringify({ commande_id: commandeActive.id, produit_id: produitId, quantite: qte })
+    });
+    const produit = produits.find(p => p.id === produitId);
+    commandeActive.panier.push({ ...detail, nom: produit.nom });
+    afficherCommandeActive();
+  } catch (e) {
+    showMsg('commandeActiveZone', e.message, false);
+  }
+}
+
+function afficherCommandeActive() {
+  const zone = document.getElementById('commandeActiveZone');
+  if (!commandeActive) { zone.innerHTML = ''; return; }
+
+  const total = commandeActive.panier.reduce((s, l) => s + Number(l.prix_unitaire) * l.quantite, 0);
+  zone.innerHTML = `
+    <div class="commande-active">
+      <strong>Commande #${commandeActive.id}</strong> — Table ${commandeActive.table_id}
+      ${commandeActive.panier.map(l => `
+        <div class="ligne-panier">
+          <span>${l.quantite} × ${l.nom}</span>
+          <span>${(Number(l.prix_unitaire) * l.quantite).toFixed(2)} DT</span>
+        </div>
+      `).join('') || '<p class="empty">Aucun produit ajouté.</p>'}
+      ${commandeActive.panier.length ? `<div class="total">Total : ${total.toFixed(2)} DT</div>` : ''}
+      <button class="secondary" style="margin-top:10px;" onclick="terminerCommande()">Terminer cette commande</button>
+    </div>
+  `;
+}
+
+function terminerCommande() {
+  commandeActive = null;
+  afficherCommandeActive();
+  afficherProduits();
+  chargerCommandes();
+}
+
+async function chargerCommandes() {
+  const zone = document.getElementById('commandesListe');
+  try {
+    const commandes = await api('/commandes');
+    if (!commandes.length) {
+      zone.innerHTML = '<p class="empty">Aucune commande pour le moment.</p>';
+      return;
+    }
+    zone.innerHTML = '<div class="liste-commandes">' + commandes.map(c => `
+      <div class="commande-card" id="cmd-${c.id}">
+        <div class="commande-header">
+          <span><strong>#${c.id}</strong> — Table ${c.table_numero ?? c.table_id}</span>
+          <span class="statut-badge statut-${c.statut.replace(' ', '_')}">${c.statut}</span>
+        </div>
+        <div class="commande-detail-list">${new Date(c.date_commande).toLocaleString('fr-FR')}</div>
+        <div class="commande-detail-list" id="detail-${c.id}"><button class="secondary" onclick="voirDetail(${c.id})" style="padding:4px 8px; font-size:0.78rem;">Voir le détail</button></div>
+        <select class="statut-select" onchange="changerStatut(${c.id}, this.value)">
+          <option value="">Changer le statut…</option>
+          <option value="en attente">en attente</option>
+          <option value="en préparation">en préparation</option>
+          <option value="servie">servie</option>
+          <option value="payée">payée</option>
+        </select>
+      </div>
+    `).join('') + '</div>';
+  } catch (e) {
+    zone.innerHTML = `<p class="empty">Erreur de chargement (${e.message}).</p>`;
+  }
+}
+
+async function voirDetail(id) {
+  const zone = document.getElementById(`detail-${id}`);
+  try {
+    const commande = await api(`/commandes/${id}`);
+    if (!commande.produits.length) {
+      zone.innerHTML = '<em>Aucun produit dans cette commande.</em>';
+      return;
+    }
+    zone.innerHTML = commande.produits.map(p =>
+      `${p.quantite} × ${p.nom} (${Number(p.prix_unitaire).toFixed(2)} DT)`
+    ).join('<br>');
+  } catch (e) {
+    zone.innerHTML = `<em>Erreur : ${e.message}</em>`;
+  }
+}
+
+async function changerStatut(id, statut) {
+  if (!statut) return;
+  try {
+    await api(`/commandes/${id}`, { method: 'PUT', body: JSON.stringify({ statut }) });
+    chargerCommandes();
+  } catch (e) {
+    alert('Erreur : ' + e.message);
+  }
+}
+
+document.getElementById('btnRefresh').addEventListener('click', chargerCommandes);
+
+chargerDonnees();
+</script>
+</body>
+</html>
