@@ -21,7 +21,12 @@ app.get('/test-db', async (req, res) => {
 
 app.get('/produits', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM produits');
+    const seulementDisponibles = req.query.disponible === 'true';
+    const result = await pool.query(
+      seulementDisponibles
+        ? 'SELECT * FROM produits WHERE disponible = true ORDER BY id'
+        : 'SELECT * FROM produits ORDER BY id'
+    );
     res.json(result.rows);
   } catch (err) {
     res.status(500).send(`Erreur : ${err.message}`);
@@ -130,4 +135,64 @@ app.put('/commandes/:id', async (req, res) => {
 });
 app.listen(PORT, () => {
   console.log(`Serveur démarré sur http://localhost:${PORT}`);
+});
+app.post('/produits', async (req, res) => {
+  const { nom, description, prix, categorie_id } = req.body;
+  if (!nom || prix === undefined || isNaN(Number(prix)) || Number(prix) < 0) {
+    return res.status(400).send('Le nom et un prix valide (>= 0) sont obligatoires');
+  }
+  try {
+    const result = await pool.query(
+      `INSERT INTO produits (nom, description, prix, categorie_id)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [nom, description || null, prix, categorie_id || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err.code === '23503') return res.status(400).send('Catégorie inexistante');
+    res.status(500).send(`Erreur : ${err.message}`);
+  }
+});
+
+app.put('/produits/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nom, description, prix, categorie_id, disponible } = req.body;
+  if (prix !== undefined && (isNaN(Number(prix)) || Number(prix) < 0)) {
+    return res.status(400).send('Prix invalide');
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE produits SET
+         nom = COALESCE($1, nom),
+         description = COALESCE($2, description),
+         prix = COALESCE($3, prix),
+         categorie_id = COALESCE($4, categorie_id),
+         disponible = COALESCE($5, disponible)
+       WHERE id = $6 RETURNING *`,
+      [nom, description, prix, categorie_id, disponible, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).send('Produit introuvable');
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    if (err.code === '23503') return res.status(400).send('Catégorie inexistante');
+    res.status(500).send(`Erreur : ${err.message}`);
+  }
+});
+
+app.delete('/produits/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'UPDATE produits SET disponible = false WHERE id = $1 RETURNING *',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).send('Produit introuvable');
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).send(`Erreur : ${err.message}`);
+  }
 });
